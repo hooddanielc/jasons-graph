@@ -4,7 +4,8 @@
     "window",
     "-Promise",
     "setTimeout",
-    "d3"
+    "d3",
+    "cola"
   ],
   "browser": true,
   "boss": true,

@@ -23,7 +23,9 @@ export default Ember.Component.extend({
     const height = this.get('height');
     const edges = this.get('data.edges');
     const nodes = this.get('data.nodes');
+    const R = 18;
 
+    // objectify the graph
     edges.forEach((edge) => {
       nodes.forEach((node) => {
         if (node.id === edge.cons) {
@@ -34,44 +36,54 @@ export default Ember.Component.extend({
       });
     });
 
-    const simulation = d3.forceSimulation()
-      .force('link', d3.forceLink().id(function (d) { return d.id; }))
-      .force('charge', d3.forceManyBody())
-      .force('center', d3.forceCenter(width / 2, height / 2));
+    // create nodes and links
+    const d3Links = svg.selectAll('.link')
+      .data(edges, (d) => { return d.cons + '_' + d.prod; });
 
-    const link = svg.append('g')
-      .attr('class', 'links')
-      .selectAll('line')
-      .data(edges)
+    d3Links
       .enter().append('line')
-        .attr('stroke-width', function () { return 4; });
+        .attr('class', 'link');
 
-    const node = svg.append('g')
-      .attr('class', 'nodes')
-      .selectAll('circle')
-      .data(nodes)
-      .enter().append('circle')
-        .attr('r', 5)
-        .call(d3.drag()
-          .on('start', (d) => { return this.dragStarted(d); })
-          .on('drag', (d) => { return this.dragged(d); })
-          .on('end', (d) => { return this.dragEnded(d); }));
+    const d3Nodes = svg.selectAll('.node')
+      .data(nodes, (d) => { return d.id; });
 
-    node.append('title').text(function (d) { return d.id; });
+    const enterNodes = d3Nodes.enter().append('g')
+      .attr('class', 'node');
 
-    simulation.nodes(nodes).on('tick', () => {
-      link
-        .attr("x1", (d) => { return d.source.x; })
-        .attr("y1", function(d) { return d.source.y; })
-        .attr("x2", function(d) { return d.target.x; })
-        .attr("y2", function(d) { return d.target.y; });
+    enterNodes.append('circle')
+      .attr('r', R);
 
-      node
-        .attr("cx", function(d) { return d.x; })
-        .attr("cy", function(d) { return d.y; });
+    // draw the label
+    enterNodes.append('text')
+      .text((d) => { return d.desc; })
+      .attr('dy', '0.35em');
+
+    // cola layout
+    nodes.forEach((v) => {
+      v.width = 2.5 * R;
+      v.height = 2.5 * R;
     });
 
+    const simulation = cola.d3adaptor()
+      .size([width, height])
+      .linkDistance(50)
+      .avoidOverlaps(true)
+      .nodes(nodes)
+      .links(edges)
+      .on('tick', function () {
+        d3Nodes.attr('transform', (d) => { return `translate(${d.x},${d.y})`; });
+
+        d3Links
+          .attr('x1', (d) => { return d.source.x; })
+          .attr('y1', (d) => { return d.source.y; })
+          .attr('x2', (d) => { return d.target.x; })
+          .attr('y2', (d) => { return d.target.y; });
+      });
+
+    enterNodes.call(simulation.drag);
+    simulation.start(30, 30, 30);
     this.set('simulation', simulation);
+
   }.on('didInsertElement'),
 
   dragStarted: function (d) {
